@@ -23,8 +23,10 @@
     "node-static": "0.6.x",
     "jade": "0.27.x",
     "stylus": "0.29.x",
+    "nib": "0.8.x",
     "vows": "0.6.x",
-    "zombie": "2.0.x"
+    "zombie": "2.0.x",
+    "sinon": "1.4.x"
   },
 
   "engines": {

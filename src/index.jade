@@ -2,9 +2,17 @@ doctype 5
 html
   head
     title BuddyRadar
+    meta(charset='utf-8')
+
+    // testing DEPLOY: !remove
+    script(src='vendor/sinon.js')
 
     // dependencies
+    script(src='vendor/zepto.js')
     script(src='vendor/remoteStorage.js')
+    script
+      coffeescript:
+        remoteStorage.util.silenceAllLoggers()
 
     // main behaviour
     script(src='buddyradar.js')
@@ -15,3 +23,10 @@ html
 
   body
     #remotestorage-connect
+
+    form#my-current-location
+      input(name="locality", placeholder="locality name")
+      input(name="lng", placeholder="lng")
+      input(name="lat", placeholder="lat")
+      input(type="button", value="save")
+

@@ -374,7 +374,7 @@ define('lib/assets',[], function () {
       +'#remotestorage-questiomark:hover { color:#fff; }\n' 
       +'#remotestorage-questionmark:hover+#remotestorage-infotext { display:inline; }\n' 
       //make cube spin in busy and connecting states: 
-      +'#remotestorage-state.busy #remotestorage-cube, #remotestorage-state.connecting #remotestorage-cube {' 
+      +'#remotestorage-state.busy #remotestorage-cube, #remotestoreage-state.authing #remotestorage-cube, #remotestorage-state.connecting #remotestorage-cube {' 
       +'   -webkit-animation-name:remotestorage-loading; -webkit-animation-duration:2s; -webkit-animation-iteration-count:infinite; -webkit-animation-timing-function:linear;\n' 
       +'   -moz-animation-name:remotestorage-loading; -moz-animation-duration:2s; -moz-animation-iteration-count:infinite; -moz-animation-timing-function:linear;\n' 
       +'   -o-animation-name:remotestorage-loading; -o-animation-duration:2s; -o-animation-iteration-count:infinite; -o-animation-timing-function:linear;\n' 
@@ -386,11 +386,12 @@ define('lib/assets',[], function () {
       +'   @-ms-keyframes remotestorage-loading { from{-ms-transform:rotate(0deg)} to{ -ms-transform:rotate(360deg)} }\n' 
       //hide all elements by default:
       +'#remotestorage-connect-button, #remotestorage-questionmark, #remotestorage-register-button, #remotestorage-cube, #remotestorage-useraddress, #remotestorage-infotext, #remotestorage-devsonly, #remotestorage-disconnect { display:none }\n' 
-      //in anonymous, registering, interrupted and failed state, display register-button, connect-button, cube, questionmark:
+      //in anonymous, interrupted, authing and failed state, display register-button, connect-button, cube, questionmark:
       +'#remotestorage-state.anonymous #remotestorage-cube, #remotestorage-state.anonymous #remotestorage-connect-button, #remotestorage-state.anonymous #remotestorage-register-button, #remotestorage-state.anonymous #remotestorage-questionmark { display: block }\n'
-      +'#remotestorage-state.registering #remotestorage-cube, #remotestorage-state.registering #remotestorage-connect-button, #remotestorage-state.registering #remotestorage-register-button, #remotestorage-state.registering #remotestorage-questionmark { display: block }\n'
+      +'#remotestorage-state.connecting #remotestorage-cube, #remotestorage-state.connecting #remotestorage-connect-button, #remotestorage-state.connecting #remotestorage-register-button, #remotestorage-state.connecting #remotestorage-questionmark { display: block }\n'
       +'#remotestorage-state.interrupted #remotestorage-cube, #remotestorage-state.interrupted #remotestorage-connect-button, #remotestorage-state.interrupted #remotestorage-register-button, #remotestorage-state.interrupted #remotestorage-questionmark { display: block }\n'
       +'#remotestorage-state.failed #remotestorage-cube, #remotestorage-state.failed #remotestorage-connect-button, #remotestorage-state.failed #remotestorage-register-button, #remotestorage-state.failed #remotestorage-questionmark { display: block }\n'
+      +'#remotestorage-state.authing #remotestorage-cube, #remotestorage-state.authing #remotestorage-connect-button, #remotestorage-state.authing #remotestorage-register-button, #remotestorage-state.authing #remotestorage-questionmark { display: block }\n'
       //in typing state, display useraddress, connect-button, cube, questionmark:
       +'#remotestorage-state.typing #remotestorage-cube, #remotestorage-state.typing #remotestorage-connect-button, #remotestorage-state.typing #remotestorage-useraddress, #remotestorage-state.typing #remotestorage-questionmark { display: block }\n'
       //display the cube when in connected, busy or offline state:
@@ -418,7 +419,7 @@ define('lib/util',[], function() {
 
   var loggers = {}, silentLogger = {};
 
-  var knownLoggers = ['sync', 'webfinger', 'getputdelete', 'platform', 'baseClient', 'widget'];
+  var knownLoggers = ['base', 'store', 'sync', 'webfinger', 'getputdelete', 'platform', 'baseClient', 'widget'];
 
   var util = {
 
@@ -461,6 +462,10 @@ define('lib/util',[], function() {
       } else {
         return parts[parts.length-1];
       }
+    },
+
+    deprecate: function(methodName, replacement) {
+      console.log('WARNING: ' + methodName + ' is deprecated, use ' + replacement + ' instead');
     },
 
     // Method: getLogger
@@ -1363,14 +1368,14 @@ define('lib/getputdelete',
     }
 
     function put(url, value, mimeType, token, cb) {
-      logger.info('calling PUT '+url);
+      if(typeof(value) !== 'string') {
+        cb("invalid value given to PUT, only strings allowed, got " + typeof(value));
+      }
+
+      logger.info('calling PUT '+url, ' (' + value.length + ')');
       doCall('PUT', url, value, mimeType, token, function(err, data) {
         //logger.debug('cb from PUT '+url);
-        if(err == 404) {
-          doPut(url, value, token, 1, cb);
-        } else {
-          cb(err, data);
-        }
+        cb(err, data);
       });
     }
 
@@ -1435,7 +1440,6 @@ define('lib/wireClient',['./getputdelete'], function (getputdelete) {
   }
 
   function fireConnected() {
-    console.log("FIRE CONNECTED", connectedCbs);
     for(var i=0;i<connectedCbs.length;i++) {
       connectedCbs[i].apply(null, arguments);
     }
@@ -1864,13 +1868,15 @@ define('lib/store',['./util'], function (util) {
   //
   // Parameters:
   //   path - absolute path
-  function getNodeData(path) {
+  //   raw  - (optional) if given and true, don't attempt to unpack JSON data
+  //
+  function getNodeData(path, raw) {
     logger.info('GET', path);
     validPath(path);
     var valueStr = localStorage.getItem(prefixNodesData+path);
     var node = getNode(path);
     if(valueStr) {
-      if(node.mimeType == "application/json") {
+      if((!raw) && (node.mimeType == "application/json")) {
         try {
           return JSON.parse(valueStr);
         } catch(exc) {
@@ -2040,7 +2046,6 @@ define('lib/sync',['./wireClient', './store', './util'], function(wireClient, st
   }
 
   function findForce(path, node) {
-    console.log("findForce", path, node);
     if(! node) {
       return null;
     } else if(! node.startForce) {
@@ -2055,19 +2060,31 @@ define('lib/sync',['./wireClient', './store', './util'], function(wireClient, st
     }
   }
 
-  function hasDiff(parentPath, path) {
-    var parent = store.getNode(parentPath),
-        fname = getFileName(path);
+  function hasDiff(parentPath, fname) {
+    var parent = store.getNode(parentPath);
     return !! parent.diff[fname];
   }
 
-  function pushNode(path, finishOne) {
+  function pushNode(path, startOne, finishOne) {
+    if(util.isDir(path)) {
+      var dirData = store.getNodeData(path);
+      for(var key in dirData) {
+        startOne();
+        pushNode(path + key, startOne, finishOne);
+      }
+      return;
+    }
     logger.debug('pushNode', path);
     var parentPath = util.containingDir(path);
-    if(hasDiff(parentPath, path)) {
+    var fname = getFileName(path)
+    if(hasDiff(parentPath, fname)) {
       logger.debug('pushNode!', path);
-      var data = store.getNodeData(path);
+      var data = store.getNodeData(path, true);
       var node = store.getNode(path);
+      if(! data) {
+        logger.error("ATTEMPTED TO PUSH EMPTY DATA", node, data);
+        return;
+      }
       wireClient.set(path, data, node.mimeType, function(err) {
         logger.debug("wire client set result", arguments);
         if(! err) {
@@ -2101,7 +2118,6 @@ define('lib/sync',['./wireClient', './store', './util'], function(wireClient, st
 
     if(force || access) {
       wireClient.get(path, function(err, data) {
-        console.log("WIRE CLIENT SAID ERR", err);
         if(!err && data) {
           if(isDir) {
             dirMerge(path, data, thisData, thisNode.diff, force, access, startOne, finishOne, function(i) {
@@ -2111,14 +2127,7 @@ define('lib/sync',['./wireClient', './store', './util'], function(wireClient, st
             store.setNodeData(path, data, false);
           }
         } else {
-          if(isDir) {
-            for(var key in thisData) {
-              startOne();
-              pushNode(path + key, finishOne);
-            }
-          } else {
-            pushNode(path, finishOne);
-          }
+          pushNode(path, startOne, finishOne);
         }
         
         finishOne(err);
@@ -2199,7 +2208,7 @@ define('lib/sync',['./wireClient', './store', './util'], function(wireClient, st
         if(callback) {
           callback(errors.length > 0 ? errors : null);
         } else {
-          console.log('syncNow done');
+          logger.info('syncNow done');
         }
       }
     }
@@ -2237,7 +2246,7 @@ define('lib/widget',['./assets', './webfinger', './hardcoded', './wireClient', '
   // Event: state
   //
   // Fired when the widget state changes.
-  // See <remoteStorage.getWidgetState> for available events.
+  // See <remoteStorage.getWidgetState> for available states.
 
   
 
@@ -2283,9 +2292,11 @@ define('lib/widget',['./assets', './webfinger', './hardcoded', './wireClient', '
     }
   }
 
-  function setWidgetState(state) {
+  function setWidgetState(state, updateView) {
     widgetState = state;
-    displayWidgetState(state, userAddress);
+    if(updateView !== false) {
+      displayWidgetState(state, userAddress);
+    }
     fireState(state);
   }
 
@@ -2299,7 +2310,7 @@ define('lib/widget',['./assets', './webfinger', './hardcoded', './wireClient', '
       return setWidgetState('typing')
     }
 
-    var userAddress = localStorage['remote_storage_widget_useraddress'] || 'me@local.dev';
+    var userAddress = localStorage['remote_storage_widget_useraddress'] || '';
     var html = 
       '<style>'+assets.widgetCss+'</style>'
       +'<div id="remotestorage-state" class="'+state+'">'
@@ -2310,7 +2321,7 @@ define('lib/widget',['./assets', './webfinger', './hardcoded', './wireClient', '
       +'  <a id="remotestorage-questionmark" href="http://unhosted.org/#remotestorage" target="_blank">?</a>'//question mark
       +'  <span class="infotext" id="remotestorage-infotext">This app allows you to use your own data storage!<br/>Click for more info on the Unhosted movement.</span>'//info text
       //+'  <input id="remotestorage-useraddress" type="text" placeholder="you@remotestorage" autofocus >'//text input
-      +'  <input id="remotestorage-useraddress" type="text" value="' + userAddress + '" placeholder="you@remotestorage" autofocus="" />'//text input
+      +'  <input id="remotestorage-useraddress" type="text" value="' + userAddress + '" placeholder="user@host" autofocus="" />'//text input
       +'  <a class="infotext" href="http://remotestoragejs.com/" target="_blank" id="remotestorage-devsonly">RemoteStorageJs is still in developer preview!<br/>Click for more info.</a>'
       +'</div>';
     platform.setElementHTML(connectElement, html);
@@ -2474,20 +2485,18 @@ define('lib/widget',['./assets', './webfinger', './hardcoded', './wireClient', '
     }
   }
   function handleDisconnectClick() {
-    if(widgetState == 'connected') {
+    sync.syncNow('/', function() {
       wireClient.disconnectRemote();
       store.forgetAll();
+      // trigger 'disconnected' once, so the app can clear it's views.
+      setWidgetState('disconnected', true);
       setWidgetState('anonymous');
-    } else {
-      platform.alert('you cannot disconnect now, please wait until the cloud is up to date...');
-    }
+    });
   }
   function handleCubeClick() {
-    sync.syncNow('/', function(errors) {
-    });
-    //if(widgetState == 'connected') {
-    //  handleDisconnectClick();
-    //}
+    if(widgetState == 'connected') {
+     handleDisconnectClick();
+    }
   }
   function handleWidgetTypeUserAddress(event) {
     if(event.keyCode === 13) {
@@ -3014,7 +3023,7 @@ define('lib/baseClient',['./sync', './store', './util'], function (sync, store, 
     },
 
     //
-    // Method: sync
+    // Method: use
     //
     // Force given path to be synchronized in the future.
     //
@@ -3027,9 +3036,14 @@ define('lib/baseClient',['./sync', './store', './util'], function (sync, store, 
     //   path      - path relative to the module root
     //   switchVal - optional boolean flag to set force value. Use "false" to remove the force flag.
     //
-    sync: function(path, switchVal) {
+    use: function(path, switchVal) {
       var absPath = this.makePath(path);
       store.setNodeForce(absPath, (switchVal != false));
+    },
+
+    sync: function() {
+      util.deprecate('BaseClient.sync', 'BaseClient.use');
+      this.use.apply(this, arguments);
     },
 
     //
@@ -3504,13 +3518,16 @@ define('remoteStorage',[
     // Get the widget state, reflecting the general connection state.
     //
     // Defined widget states are:
-    //   anonymous  - initial state / disconnected
-    //   typing     - userAddress input visible, user typing her address.
-    //   connecting - pre-authentication, webfinger discovery.
-    //   authing    - about to redirect to the auth endpoint (if authDialog=popup,
-    //                means the popup is open)
-    //   connected  - Discovery & Auth done, connected to remotestorage.
-    //   busy       - Currently exchaning data. (spinning cube)
+    //   anonymous    - initial state
+    //   typing       - userAddress input visible, user typing her address.
+    //   connecting   - pre-authentication, webfinger discovery.
+    //   authing      - about to redirect to the auth endpoint (if authDialog=popup,
+    //                  means the popup is open)
+    //   connected    - Discovery & Auth done, connected to remotestorage.
+    //   busy         - Currently exchaning data. (spinning cube)
+    //   disconnected - fired, when user clicks 'disconnect'. use this to clear your
+    //                  app's views of the data. immediately transitions to 'anonymous'
+    //                  afterwards.
     //
     getWidgetState   : widget.getState,
     setStorageInfo   : wireClient.setStorageInfo,

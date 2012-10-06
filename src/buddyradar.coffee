@@ -5,6 +5,7 @@ moduleName = "buddyradar"
 remoteStorage.defineModule moduleName, (privateClient, publicClient) ->
 
   return {
-    exports: {}
+    exports:
+      setMyCurrentLocation: (localityName, lng, lat) ->
 
   }

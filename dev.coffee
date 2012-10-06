@@ -4,13 +4,6 @@ watch = require 'nodewatch'
 exec = require('child_process').exec
 path = require 'path'
 
-# start static server on port 8080
-staticSrv = require 'node-static'
-file = new(staticSrv.Server)('./public')
-require('http').createServer (request, response) ->
-  request.addListener 'end', ->
-    file.serve request, response
-.listen 8080
 
 # watch files and precompile
 watch.add './src', true
