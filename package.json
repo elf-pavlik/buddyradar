@@ -1,0 +1,34 @@
+{
+  "name":        "buddyradar",
+  "version":     "0.0.1",
+  "author":      "elf Pavlik",
+  "keywords":    "unhosted remotestorage map",
+  "description": "An app to track location of your friends",
+  "licenses":     [{
+    "type":       "UNLICENSE",
+    "url":        "http://unlicense.org/"
+  }],
+
+  "repository" : {
+    "type": "git",
+    "url":  "https://github.com/github/buddycloud.git"
+  },
+
+  "dependencies": {
+    "coffee-script": "1.3.x"
+  },
+
+  "devDependencies": {
+    "nodewatch": "0.3.x",
+    "node-static": "0.6.x",
+    "jade": "0.27.x",
+    "stylus": "0.29.x",
+    "vows": "0.6.x",
+    "zombie": "2.0.x"
+  },
+
+  "engines": {
+    "node": "0.8.x"
+  }
+}
+
