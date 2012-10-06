@@ -29,7 +29,10 @@ watch.onChange (file, prev, curr, action) ->
       exec localNpmPath + 'stylus src/screen.styl -o public'
       console.log 'screen.styl compiled'
 
-    if basename == 'buddycloud.coffee'
-      exec localNpmPath + 'coffee -c -o public src/buddycloud.coffee'
-      console.log 'buddycloud.coffee compiled'
+    if basename == 'buddyradar.coffee'
+      exec localNpmPath + 'coffee -c -o public src/buddyradar.coffee'
+      console.log 'buddyradar.coffee compiled'
 
+    if basename == 'main.coffee'
+      exec localNpmPath + 'coffee -c -o public src/main.coffee'
+      console.log 'main.coffee compiled'

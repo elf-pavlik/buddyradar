@@ -1,5 +1,6 @@
 node_modules
 public/index.html
 public/screen.css
-public/buddycloud.js
+public/buddyradar.js
+public/main.js
 
